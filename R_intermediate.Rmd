@@ -1,0 +1,193 @@
+---
+title: 'Solutions to Assignment 2: R intermediate'
+author: "Dan McGlinn"
+date: "January 15, 2016"
+output: pdf_document
+---
+
+Examine the following for loop, and then complete the exercises
+
+```{r}
+data(iris)
+head(iris)
+
+sp_ids = unique(iris$Species)
+
+output = matrix(0, nrow=length(sp_ids), ncol=ncol(iris)-1)
+rownames(output) = sp_ids
+colnames(output) = names(iris[ , -ncol(iris)])
+
+for(i in seq_along(sp_ids)) {
+    iris_sp = subset(iris, subset=Species == sp_ids[i], select=-Species)
+    for(j in 1:(ncol(iris_sp))) {
+        x = 0
+        y = 0
+        if (nrow(iris_sp) > 0) {
+            for(k in 1:nrow(iris_sp)) {
+                x = x + iris_sp[k, j]
+                y = y + 1
+            }
+            output[i, j] = x / y 
+        }
+    }
+}
+output
+```
+##Excercises
+###Iris loops
+
+1. Describe the values stored in the object `output`. In other words what did the 
+loops create?
+
+These values are averages of the traits of each species. 
+
+2. Describe using pseudo-code how `output` was calculated, for example,
+```{r, eval=FALSE}
+#loop through species ids
+#    subset iris down to only rows associated with a particular species
+#   loop through columns (i.e., species traits)
+#       if their are records associated with that column then
+#           loop through each observation
+#               sum across the observations
+#               count the number of observations
+#           compute the mean across the observations
+```
+
+3. The variables in the loop were named so as to be vague. How can the objects
+`output`, `x`, and `y` could be renamed such that it is clearer what is occurring
+in the loop.
+
+```{r}
+# the simplest change here it to rename the vauge objects
+sp_mean = matrix(0, nrow=length(sp_ids), ncol=ncol(iris)-1)
+rownames(sp_mean) = sp_ids
+colnames(sp_mean) = names(iris[ , -ncol(iris)])
+
+for(i in seq_along(sp_ids)) {
+    iris_sp = subset(iris, subset=Species == sp_ids[i], select=-Species)
+    for(j in 1:(ncol(iris_sp))) {
+        trait_sum = 0
+        num_records = 0
+        if (nrow(iris_sp) > 0) {
+            for(k in 1:nrow(iris_sp)) {
+                trait_sum = trait_sum + iris_sp[k, j]
+                num_records = num_records + 1
+            }
+            sp_mean[i, j] = trait_sum / num_records
+        }
+    }
+}
+
+```
+
+The loop above is much easier to read and understand by not using vague names.
+
+4. It is possible to accomplish the same task using fewer lines of code? Please suggest one other way to calculate `output` that decreases the number of loops
+by 1. 
+
+```{r}
+# R has a function to compute means so we can drop quite a few lines using that
+sp_mean = matrix(0, nrow=length(sp_ids), ncol=ncol(iris)-1)
+rownames(sp_mean) = sp_ids
+colnames(sp_mean) = names(iris[ , -ncol(iris)])
+
+for(i in seq_along(sp_ids)) {
+    iris_sp = subset(iris, subset=Species == sp_ids[i], select=-Species)
+    for(j in 1:(ncol(iris_sp))) {
+        sp_mean[i, j] = mean(iris_sp[ , j])
+    }
+}
+```
+
+By using a function here such as mean we've made our code more readable and less
+prone to error
+
+```{r}
+# here are two other ways to simplify the code even further that both 
+# accomplish the exact same task 
+
+# approach 1
+apply(iris[ , -5], 2, function(trait) tapply(trait, iris$Species, mean))
+
+# approach 2
+t(sapply(as.character(sp_ids), function(sp) 
+       apply(iris[iris$Species == sp, -5], 2, mean)))
+```
+
+Approach 1 seems like the better choice for readability; however, this very
+condensed code is more difficult to understand. Most beginners would consider
+this code to be very terse. Using the `apply` family of functions can produce
+large code speed ups in certain situations. The exception is `sapply` which is 
+essentially just simple for loop. 
+
+###Sum of a sequence
+
+5. You have a vector `x` with the numbers 1:10. Write a
+for loop that will produce a vector `y` that contains the sum of `x` up to that
+index of `x`. So for example the elements of `x` are 1, 2, 3, and so on and the 
+elements of `y` would be 1, 3, 6, and so on. 
+
+```{r}
+x = 1:10
+y = NULL
+for(i in 1:length(x)) {
+    y[i] = sum(x[1:i])
+}
+y
+
+# alternatively we could use an sapply function
+y = sapply(1:length(x), function(i) sum(x[1:i]))
+y
+```
+
+6. Modify your for loop so that if the sum is greater than 10 the value of `y`
+is set to NA
+
+```{r}
+y = NULL
+for(i in 1:length(x)) {
+    y[i] = sum(x[1:i])
+    if (y[i] > 10) {
+        y[i] = NA
+    }
+}
+y
+
+# alternatively although much more difficult to understand we could use
+y = sapply(1:length(x), function(i) ifelse(sum(x[1:i]) > 10, NA, sum(x[1:i])))
+y
+# I definately prefer the loop approach in this context because of readability
+# the sapply approach will be no faster
+```
+
+7. Place your for loop into a function that accepts as its argument any vector
+of arbitrary length and it will return `y`. 
+
+```{r}
+cum_sum_cutoff = function(x, cutoff=10) {
+    # this function computes a cumulative sum along a numeric vector up to a cutoff
+    # arguments
+    # x: a numeric vector
+    # cutoff: a number above which sums are set to NA, defaults to 10.
+    if (!is.vector(x)) 
+        stop('x must be a vector')
+    if (!is.numeric(x))
+        stop('x must be numeric')
+    y = NULL
+    for(i in 1:length(x)) {
+        y[i] = sum(x[1:i])
+        if (y[i] > cutoff) {
+            y[i] = NA
+        }
+    }
+    return(y)
+}
+
+cum_sum_cutoff(1:10)
+cum_sum_cutoff(1:10, 50)
+```
+
+Notice above I have defined a new variable called `cutoff` which I use to 
+vary what the cutoff of the cumulative sum is. Also notice that I used a fairly
+informative function name. This name is pushing the upper limits of how long an
+object name to shoot for. Text completion helps to deal with cumbersome names. 
